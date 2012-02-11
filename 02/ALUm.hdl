@@ -1,0 +1,15 @@
+// ALU manipulator. Accepts a 16-bit input 'in' and two
+// control bits, zero and negate.
+// If zero is set, the input will be zeroed.
+// If negate is set, the input will be negated (bit-wise)
+// The output is then returned via 'out'.
+
+CHIP ALUm {
+    IN in[16], zero, negate;
+    OUT out[16];
+    
+    PARTS:
+    Mux16(a=in, b=false, sel=zero, out=t1);
+    Not16(in=t1, out=nott1);
+    Mux16(a=t1, b=nott1, sel=negate, out=out);
+}

@@ -1,0 +1,14 @@
+// Return 1 if input is the 16-bit two's complement representation
+// of zero.
+CHIP IsZero16 {
+    IN in[16];
+    OUT out;
+    
+    PARTS:
+    // We OR everything, which is only 0 if every bit is 0
+    // Then negate
+    Or8Way(in=in[0..7], out=t1);
+    Or8Way(in=in[8..15], out=t2);
+    Or(a=t1, b=t2, out=t3);
+    Not(in=t3, out=out);
+}

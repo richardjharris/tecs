@@ -1,0 +1,110 @@
+// This file is part of the materials accompanying the book 
+// "The Elements of Computing Systems" by Nisan and Schocken, 
+// MIT Press. Book site: www.idc.ac.il/tecs
+// File name: projects/05/CPU.hdl
+
+/**
+ * The Central Processing unit (CPU).
+ * Consists of an ALU and a set of registers, designed to fetch and 
+ * execute instructions written in the Hack machine language.
+ * In particular, functions as follows:
+ * Executes the inputted instruction according to the Hack machine 
+ * language specification. The D and A in the language specification
+ * refer to CPU-resident registers, while M refers to the external
+ * memory location addressed by A, i.e. to Memory[A]. The inM input 
+ * holds the value of this location. If the current instruction needs 
+ * to write a value to M, the value is placed in outM, the address 
+ * of the target location is placed in the addressM output, and the 
+ * writeM control bit is asserted. (When writeM=0, any value may 
+ * appear in outM). The outM and writeM outputs are combinational: 
+ * they are affected instantaneously by the execution of the current 
+ * instruction. The addressM and pc outputs are clocked: although they 
+ * are affected by the execution of the current instruction, they commit 
+ * to their new values only in the next time unit. If reset=1 then the 
+ * CPU jumps to address 0 (i.e. sets pc=0 in next time unit) rather 
+ * than to the address resulting from executing the current instruction. 
+ */
+
+CHIP CPU {
+
+    IN  inM[16],         // M value input  (M = contents of RAM[A])
+        instruction[16], // Instruction for execution
+        reset;           // Signals whether to re-start the current
+                         // program (reset=1) or continue executing
+                         // the current program (reset=0).
+
+    OUT outM[16],        // M value output
+        writeM,          // Write into M? 
+        addressM[15],    // Address in data memory (of M)
+        pc[15];          // address of next instruction
+
+    PARTS:
+    // Rename certain pins of the instruction input for clarity.
+    Or16(a=instruction, b=false,
+      out[15]=iCinstr,      // 0 if A, 1 if C
+      out[0..14]=iAddress,  // if A-instruction
+      out[0]=iJumpPos,
+      out[1]=iJumpZero,
+      out[2]=iJumpNeg,
+      out[3]=iDestM,        // sent to memory module
+      out[4]=iDestD,
+      out[5]=iDestA,
+      out[6]=ALUno,
+      out[7]=ALUf,
+      out[8]=ALUny,
+      out[9]=ALUzy,
+      out[10]=ALUnx,
+      out[11]=ALUzx,
+      out[12]=iALUUseM
+    );
+    Not(in=iCinstr, out=iAinstr);  // shorthand
+    
+    // Don't write ALU output anywhere if we're in A-mode
+    Mux(a=iDestM, b=false, sel=iAinstr, out=writeM);
+    Mux(a=iDestD, b=false, sel=iAinstr, out=writeD);
+    
+    // Set up A register and decide if we're loading, and if so, what.
+    Or(a=iAinstr, b=iDestA, out=doAload);
+    Mux16(a=ALUout, b[0..14]=iAddress, b[15]=false, sel=iAinstr, out=Ain);
+    ARegister(in=Ain, out=Aout, out[0..14]=addressM, load=doAload);
+    
+    // Set up D register, and load from ALU if needed
+    DRegister(in=ALUout, out=ALUin1, load=writeD);
+    
+    // Choose between A and M as second ALU input
+    Mux16(a=Aout, b=inM, sel=iALUUseM, out=ALUin2);
+    
+    // The ALU itself
+    ALU(
+      x=ALUin1,
+      y=ALUin2,
+      zx=ALUzx,
+      nx=ALUnx,
+      zy=ALUzy,
+      ny=ALUny,
+      f=ALUf,
+      no=ALUno,
+      out=outM,        // to set M (via writeM bit)
+      out=ALUout,      // to set D or A
+      zr=ALUzr,
+      ng=ALUng
+    );
+    
+    // Program counter. Increments unless we want to jump
+    // Note that reset, pc are external lines
+    PC(in=Aout, load=doJump, inc=true, reset=reset, out[0..14]=pc);
+    
+    // Decide if we need to jump   
+    // Note: the initial version of this accidentally assumed ALUpos=
+    // Not(ALUng). That counted zero as positive, which is a bug.
+    // Making the jump logic a separate chip, with a test suite, would
+    // have avoided this. 
+    Or(a=ALUng, b=ALUzr, out=ALUnotpos);
+    Not(in=ALUnotpos, out=ALUpos);    // pos = neither 0 nor negative
+    And(a=iJumpNeg, b=ALUng, out=j1); 
+    And(a=iJumpZero, b=ALUzr, out=j2);
+    And(a=iJumpPos, b=ALUpos, out=j3);  // 3 conditions
+    Or(a=j1, b=j2, out=j12);             
+    Or(a=j12, b=j3, out=jumpCondition);  // at least one condition holds
+    And(a=iCinstr, b=jumpCondition, out=doJump);  // and we're in C-mode
+}

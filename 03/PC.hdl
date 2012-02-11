@@ -1,0 +1,33 @@
+// This file is part of the materials accompanying the book 
+// "The Elements of Computing Systems" by Nisan and Schocken, 
+// MIT Press. Book site: www.idc.ac.il/tecs
+// File name: projects/03/1/PC.hdl
+
+/**
+ * 16-bit counter with load and reset controls.
+ *
+ * If reset(t-1) then out(t) = 0
+ *    else if load(t-1) then out(t) = in(t-1)
+ *         else if inc(t-1) then out(t) = out(t-1) + 1 (integer addition)
+ *              else out(t) = out(t-1)
+ */
+
+CHIP PC {
+    IN  in[16], load, inc, reset;
+    OUT out[16];
+
+    PARTS:
+    // Decide next counter value (inc, load or reset)
+    Inc16(in=lastOut, out=lastOutInc);   
+    Mux16(a=lastOutInc, b=in, sel=load, out=t1);
+    Mux16(a=t1, b=false, sel=reset, out=newCount);
+    
+    // Load the value if any of inc/load/reset set
+    Or(a=inc, b=load, out=t2);
+    Or(a=t2, b=reset, out=doLoad);
+    Register(in=newCount, load=doLoad, out=out, out=lastOut);
+    
+    // Another way to do it: set load=true and do three Mux16s
+    // to choose between the old value, the inced value, zero
+    // and the load value. Of course, this is slower!
+}

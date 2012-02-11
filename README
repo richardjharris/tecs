@@ -1,0 +1,9 @@
+These are solutions to The Elements of Computing Systems, which is a very good
+book aimed at teaching Computer Science from a very low level (hardware and 
+logic) up to high level (virtual machines, assemblers and compilers).
+
+Most of the book is available for free at http://www1.idc.ac.il/tecs (in the
+"Study Plan" section), though several chapters are missing, and I highly 
+recommend purchasing the book.
+
+The solutions are organised by chapter.
